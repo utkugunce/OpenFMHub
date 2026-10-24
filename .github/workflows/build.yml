@@ -1,0 +1,48 @@
+name: Build & Release OpenFM Hub
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore Dependencies
+        run: dotnet restore ./OpenFMHub.csproj
+
+      - name: Build and Publish Standalone
+        run: >
+          dotnet publish ./OpenFMHub.csproj
+          -c Release
+          -r win-x64
+          --self-contained false
+          -p:PublishSingleFile=true
+          -o ./publish
+
+      - name: Package Release
+        run: |
+          Compress-Archive -Path ./publish/* -DestinationPath ./OpenFMHub-Portable-win-x64.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            OpenFMHub-Portable-win-x64.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
