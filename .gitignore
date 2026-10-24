@@ -7,3 +7,8 @@ dist/
 *.suo
 .vs/
 *.log
+
+fm-ai-assistent-desktop-windows-x64.zip
+fm-desktop/
+publish/FM AI Assistent/
+

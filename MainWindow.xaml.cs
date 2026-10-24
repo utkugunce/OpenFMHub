@@ -98,11 +98,11 @@ namespace OpenFMHub
                 if (!isServerUp)
                 {
                     string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                    string engineExe = Path.Combine(baseDir, "fm-ai-assistent-windows-x64.exe");
+                    string engineExe = Path.Combine(baseDir, "FM AI Assistent", "FM AI Assistent.exe");
 
                     if (!File.Exists(engineExe))
                     {
-                        engineExe = @"C:\Users\utkug\.gemini\antigravity\scratch\OpenFMHub\fm-ai-assistent-windows-x64.exe";
+                        engineExe = @"C:\Users\utkug\.gemini\antigravity\scratch\OpenFMHub\fm-desktop\FM AI Assistent\FM AI Assistent.exe";
                     }
 
                     if (File.Exists(engineExe))
@@ -110,6 +110,7 @@ namespace OpenFMHub
                         var psi = new ProcessStartInfo
                         {
                             FileName = engineExe,
+                            WorkingDirectory = Path.GetDirectoryName(engineExe),
                             CreateNoWindow = true,
                             UseShellExecute = false,
                             WindowStyle = ProcessWindowStyle.Hidden
@@ -157,7 +158,7 @@ namespace OpenFMHub
             {
                 if (_engineProcess != null && !_engineProcess.HasExited)
                 {
-                    _engineProcess.Kill();
+                    _engineProcess.Kill(true);
                 }
             }
             catch { }
