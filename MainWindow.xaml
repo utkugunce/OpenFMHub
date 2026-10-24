@@ -1,9 +1,10 @@
 <Window x:Class="OpenFMHub.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="OpenFM Hub - FM 2026 Season Archive &amp; Moneyball Scout"
-        Height="720" Width="1200"
+        Title="OpenFM Hub - FM 2026 Live Scout &amp; Season Archive"
+        Height="760" Width="1240"
         MinHeight="600" MinWidth="1000"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
@@ -51,240 +52,240 @@
             </Style.Triggers>
         </Style>
 
-        <Style x:Key="ActionBtnStyle" TargetType="Button">
+        <Style x:Key="NavBtnStyle" TargetType="Button" BasedOn="{StaticResource WindowBtnStyle}">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#8B949E"/>
+            <Setter Property="Padding" Value="14,6"/>
+        </Style>
+
+        <Style x:Key="ActionMiniBtn" TargetType="Button" BasedOn="{StaticResource WindowBtnStyle}">
             <Setter Property="Background" Value="#238636"/>
             <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="shell:WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="Padding" Value="10,5"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#2EA043"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
-
-        <Style x:Key="TabHeaderBtn" TargetType="Button" BasedOn="{StaticResource WindowBtnStyle}">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#8B949E"/>
-            <Setter Property="Padding" Value="12,6"/>
-        </Style>
     </Window.Resources>
 
     <Border Background="#0D1117" BorderBrush="#30363D" BorderThickness="1" CornerRadius="10">
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="40"/> <!-- Başlık Çubuğu -->
-                <RowDefinition Height="Auto"/> <!-- Üst Filtre & Aksiyon Barı -->
-                <RowDefinition Height="*"/>    <!-- Ana İçerik (Tablo + Oyuncu Detay Kartı) -->
+                <RowDefinition Height="42"/> <!-- Başlık Çubuğu -->
+                <RowDefinition Height="*"/>    <!-- Ana İçerik (Canlı RAM Görünümü veya Moneyball Radarı) -->
                 <RowDefinition Height="28"/> <!-- Alt Durum Çubuğu -->
             </Grid.RowDefinitions>
 
-            <!-- 1. BAŞLIK ÇUBUĞU -->
-            <Grid Grid.Row="0" Background="#161B22" Margin="0,0,0,0">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
-                    <TextBlock Text="⚽" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+            <!-- 1. BAŞLIK ÇUBUĞU VE ÜST MENÜ -->
+            <Grid Grid.Row="0" Background="#161B22">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Sol: Logo & Başlık -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,16,0">
+                    <TextBlock Text="⚽" FontSize="15" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="OpenFM Hub" Foreground="#58A6FF" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
-                    <TextBlock Text=" • Football Manager 2026 Sezon Arşivi &amp; Moneyball Gözlemcisi" Foreground="#8B949E" FontSize="11" Margin="6,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0">
+                <!-- Orta: Ana Navigasyon Sekmeleri -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="BtnNavLive" Content="⚡ Canlı FM26 Bellek Scout" Style="{StaticResource NavBtnStyle}" Click="BtnNavLive_Click" Foreground="#58A6FF"/>
+                    <Button x:Name="BtnNavArchive" Content="📊 Sezon Arşivi &amp; Moneyball Radarı" Style="{StaticResource NavBtnStyle}" Click="BtnNavArchive_Click"/>
+
+                    <!-- FM Bağlantı Durumu Rozeti -->
+                    <Border x:Name="FmStatusBadge" Background="#1F3554" BorderBrush="#388BFD" BorderThickness="1" CornerRadius="12" Margin="16,0,0,0" Padding="8,2" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="TxtFmDot" Text="●" Foreground="#3FB950" FontSize="10" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtFmStatus" Text="FM 2026 Aktif (PID: 28872)" Foreground="#58A6FF" FontSize="10" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Sağ: Pencere Butonları -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
                     <Button Content="—" Style="{StaticResource WindowBtnStyle}" Click="BtnMinimize_Click" Width="34"/>
                     <Button Content="🗖" Style="{StaticResource WindowBtnStyle}" Click="BtnMaximize_Click" Width="34"/>
                     <Button Content="✕" Style="{StaticResource CloseBtnStyle}" Click="BtnClose_Click" Width="34"/>
                 </StackPanel>
             </Grid>
 
-            <!-- 2. ÜST FİLTRE & EYLEM BARI -->
-            <Border Grid.Row="1" Background="#0D1117" BorderBrush="#21262D" BorderThickness="0,0,0,1" Padding="14,8">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+            <!-- 2. ANA İÇERİK ALANI -->
+            <Grid Grid.Row="1">
+                <!-- GÖRÜNÜM A: CANLI BELLEK SCOUT (WEBVIEW2) -->
+                <Grid x:Name="ViewLive" Visibility="Visible">
+                    <!-- Yükleniyor / Bağlanıyor Ekranı -->
+                    <Grid x:Name="LiveLoadingOverlay" Background="#0D1117" Visibility="Visible">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock Text="⚽" FontSize="36" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                            <TextBlock Text="FM 2026 Canlı Bellek Motoru Başlatılıyor..." Foreground="#F0F6FC" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Oyunun RAM adreslerine bağlanılıyor, lütfen birkaç saniye bekleyin..." Foreground="#8B949E" FontSize="11" Margin="0,6,0,0" HorizontalAlignment="Center"/>
+                            <ProgressBar IsIndeterminate="True" Width="200" Height="4" Margin="0,16,0,0" Background="#21262D" Foreground="#58A6FF"/>
+                        </StackPanel>
+                    </Grid>
 
-                    <!-- Sezon Seçici & Sekmeler -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="Sezon:" Foreground="#8B949E" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                        <ComboBox x:Name="CmbSeason" Width="130" Background="#161B22" Foreground="#F0F6FC" FontSize="11" SelectionChanged="CmbSeason_SelectionChanged" Margin="0,0,14,0"/>
+                    <wv2:WebView2 x:Name="MainWebView" NavigationCompleted="MainWebView_NavigationCompleted"/>
+                </Grid>
 
-                        <Button x:Name="TabBtnOverview" Content="📊 Kadro &amp; Metrikler" Style="{StaticResource TabHeaderBtn}" Click="TabOverview_Click" Foreground="#58A6FF"/>
-                        <Button x:Name="TabBtnMoneyball" Content="🎯 Moneyball Sıralaması" Style="{StaticResource TabHeaderBtn}" Click="TabMoneyball_Click"/>
-                        <Button x:Name="TabBtnProgression" Content="📈 Gelişim Eğrisi" Style="{StaticResource TabHeaderBtn}" Click="TabProgression_Click"/>
-                        <Button x:Name="TabBtnContracts" Content="⚠️ Sözleşme Alarmları" Style="{StaticResource TabHeaderBtn}" Click="TabContracts_Click"/>
-                    </StackPanel>
+                <!-- GÖRÜNÜM B: ÇOKLU SEZON ARŞİVİ & MONEYBALL RADARI -->
+                <Grid x:Name="ViewArchive" Visibility="Collapsed" Margin="14,10,14,6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-                    <!-- Arama Kutusu -->
-                    <Border Grid.Column="1" Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="6" Margin="14,0" Padding="8,2" MaxWidth="350" HorizontalAlignment="Left">
+                    <!-- Üst Filtre Barı -->
+                    <Border Grid.Row="0" Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,0,10">
                         <Grid>
-                            <TextBlock Text="🔍 Oyuncu, kulüp veya mevkide ara..." Foreground="#6E7681" FontSize="11" VerticalAlignment="Center" IsHitTestVisible="False">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Text, ElementName=TxtSearch}" Value="">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <TextBox x:Name="TxtSearch" Background="Transparent" Foreground="#F0F6FC" BorderThickness="0" FontSize="11" TextChanged="TxtSearch_TextChanged" Width="300"/>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Sezon Arşivi:" Foreground="#8B949E" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox x:Name="CmbSeason" Width="130" Background="#0D1117" Foreground="#F0F6FC" FontSize="11" SelectionChanged="CmbSeason_SelectionChanged" Margin="0,0,14,0"/>
+
+                                <Border Background="#0D1117" BorderBrush="#30363D" BorderThickness="1" CornerRadius="4" Padding="6,2" Width="240">
+                                    <TextBox x:Name="TxtSearch" Background="Transparent" Foreground="#F0F6FC" BorderThickness="0" FontSize="11" TextChanged="TxtSearch_TextChanged"/>
+                                </Border>
+                            </StackPanel>
                         </Grid>
                     </Border>
 
-                    <!-- İçe Aktarma Butonları -->
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Content="📥 FM HTML İçe Aktar" Style="{StaticResource ActionBtnStyle}" Click="BtnImportHtml_Click" ToolTip="FM içinde Ctrl+P ile kaydedilen Web Sayfasını aktarın"/>
-                        <Button Content="📂 FM Klasörünü Tara" Style="{StaticResource WindowBtnStyle}" Click="BtnAutoScan_Click" Margin="6,0,0,0" ToolTip="Belgelerimdeki FM26 klasörünü otomatik tara"/>
-                    </StackPanel>
-                </Grid>
-            </Border>
+                    <!-- Tablo + Radar -->
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="340"/>
+                        </Grid.ColumnDefinitions>
 
-            <!-- 3. ANA İÇERİK ALANI (TABLO + RADAR SAĞ PANEL) -->
-            <Grid Grid.Row="2" Margin="14,10,14,6">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="340"/>
-                </Grid.ColumnDefinitions>
+                        <!-- Tablo -->
+                        <Border Grid.Column="0" Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="6" Margin="0,0,10,0">
+                            <DataGrid x:Name="GridPlayers" AutoGenerateColumns="False" Background="Transparent" BorderThickness="0"
+                                      Foreground="#F0F6FC" RowBackground="#161B22" AlternatingRowBackground="#1C2128"
+                                      GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#21262D"
+                                      CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single"
+                                      SelectionChanged="GridPlayers_SelectionChanged">
+                                <DataGrid.Resources>
+                                    <Style TargetType="DataGridColumnHeader">
+                                        <Setter Property="Background" Value="#161B22"/>
+                                        <Setter Property="Foreground" Value="#8B949E"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Setter Property="FontSize" Value="10"/>
+                                        <Setter Property="Padding" Value="8,6"/>
+                                        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                        <Setter Property="BorderBrush" Value="#30363D"/>
+                                    </Style>
+                                    <Style TargetType="DataGridRow">
+                                        <Style.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="#1F3554"/>
+                                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGrid.Resources>
 
-                <!-- SOL TARAF: VERİ TABLOSU -->
-                <Border Grid.Column="0" Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="6" Margin="0,0,10,0">
-                    <DataGrid x:Name="GridPlayers" AutoGenerateColumns="False" Background="Transparent" BorderThickness="0"
-                              Foreground="#F0F6FC" RowBackground="#161B22" AlternatingRowBackground="#1C2128"
-                              GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#21262D"
-                              CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single"
-                              SelectionChanged="GridPlayers_SelectionChanged">
-                        <DataGrid.Resources>
-                            <Style TargetType="DataGridColumnHeader">
-                                <Setter Property="Background" Value="#161B22"/>
-                                <Setter Property="Foreground" Value="#8B949E"/>
-                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                <Setter Property="FontSize" Value="10"/>
-                                <Setter Property="Padding" Value="8,6"/>
-                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                                <Setter Property="BorderBrush" Value="#30363D"/>
-                            </Style>
-                            <Style TargetType="DataGridRow">
-                                <Style.Triggers>
-                                    <Trigger Property="IsSelected" Value="True">
-                                        <Setter Property="Background" Value="#1F3554"/>
-                                        <Setter Property="Foreground" Value="#FFFFFF"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </DataGrid.Resources>
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="OYUNCU" Binding="{Binding Name}" Width="160"/>
+                                    <DataGridTextColumn Header="YAŞ" Binding="{Binding Age}" Width="45"/>
+                                    <DataGridTextColumn Header="KULÜP" Binding="{Binding Club}" Width="120"/>
+                                    <DataGridTextColumn Header="MEVKİ" Binding="{Binding Position}" Width="70"/>
+                                    <DataGridTextColumn Header="EN UYGUN ROL" Binding="{Binding BestRoleName}" Width="110"/>
+                                    <DataGridTemplateColumn Header="ROL SKORU" Width="100">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <ProgressBar Value="{Binding RoleScore}" Maximum="100" Width="45" Height="6" Background="#21262D" Foreground="#58A6FF" Margin="0,0,6,0"/>
+                                                    <TextBlock Text="{Binding RoleScore}" Foreground="#58A6FF" FontWeight="Bold" FontSize="10"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="MÇ" Binding="{Binding Apps}" Width="40"/>
+                                    <DataGridTextColumn Header="GOL" Binding="{Binding Goals}" Width="45"/>
+                                    <DataGridTextColumn Header="AST" Binding="{Binding Assists}" Width="45"/>
+                                    <DataGridTextColumn Header="xG" Binding="{Binding ExpectedGoals, StringFormat=F1}" Width="45"/>
+                                    <DataGridTextColumn Header="PUAN" Binding="{Binding AvgRating, StringFormat=F2}" Width="55"/>
+                                    <DataGridTextColumn Header="DEĞER" Binding="{Binding FormattedValue}" Width="70"/>
+                                    <DataGridTextColumn Header="SEZON" Binding="{Binding Season}" Width="65"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
 
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="OYUNCU" Binding="{Binding Name}" Width="160"/>
-                            <DataGridTextColumn Header="YAŞ" Binding="{Binding Age}" Width="45"/>
-                            <DataGridTextColumn Header="KULÜP" Binding="{Binding Club}" Width="120"/>
-                            <DataGridTextColumn Header="MEVKİ" Binding="{Binding Position}" Width="70"/>
-                            <DataGridTextColumn Header="EN UYGUN ROL" Binding="{Binding BestRoleName}" Width="110"/>
-                            <DataGridTemplateColumn Header="ROL SKORU" Width="100">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <ProgressBar Value="{Binding RoleScore}" Maximum="100" Width="45" Height="6" Background="#21262D" Foreground="#58A6FF" Margin="0,0,6,0"/>
-                                            <TextBlock Text="{Binding RoleScore}" Foreground="#58A6FF" FontWeight="Bold" FontSize="10"/>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="MÇ" Binding="{Binding Apps}" Width="40"/>
-                            <DataGridTextColumn Header="GOL" Binding="{Binding Goals}" Width="45"/>
-                            <DataGridTextColumn Header="AST" Binding="{Binding Assists}" Width="45"/>
-                            <DataGridTextColumn Header="xG" Binding="{Binding ExpectedGoals, StringFormat=F1}" Width="45"/>
-                            <DataGridTextColumn Header="PUAN" Binding="{Binding AvgRating, StringFormat=F2}" Width="55"/>
-                            <DataGridTextColumn Header="DEĞER" Binding="{Binding FormattedValue}" Width="70"/>
-                            <DataGridTextColumn Header="SEZON" Binding="{Binding Season}" Width="65"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Border>
-
-                <!-- SAĞ TARAF: SEÇİLEN OYUNCU MONEYBALL & RADAR KARTI -->
-                <Border Grid.Column="1" Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="12">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel>
-                            <!-- Başlık / Profil Özeti -->
-                            <Grid Margin="0,0,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock x:Name="CardPlayerName" Text="Semih Kılıçsoy" Foreground="#F0F6FC" FontSize="15" FontWeight="Bold"/>
-                                    <TextBlock x:Name="CardPlayerMeta" Text="20 Yaş • Beşiktaş • ST • 🇹🇷" Foreground="#8B949E" FontSize="11"/>
-                                </StackPanel>
-                                <Border Grid.Column="1" Background="#1F3554" BorderBrush="#388BFD" BorderThickness="1" CornerRadius="8" Padding="6,2">
-                                    <TextBlock x:Name="CardRoleScoreBadge" Text="92.4" Foreground="#58A6FF" FontWeight="Bold" FontSize="13"/>
-                                </Border>
-                            </Grid>
-
-                            <!-- CA / PA & Gizli Nitelikler Kartı -->
-                            <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,10">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                                        <TextBlock Text="YETENEK (CA)" Foreground="#6E7681" FontSize="8" FontWeight="Bold"/>
-                                        <TextBlock x:Name="CardCa" Text="145 / 200" Foreground="#3FB950" FontSize="11" FontWeight="Bold"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                                        <TextBlock Text="POTANSİYEL (PA)" Foreground="#6E7681" FontSize="8" FontWeight="Bold"/>
-                                        <TextBlock x:Name="CardPa" Text="168 / 200" Foreground="#D29922" FontSize="11" FontWeight="Bold"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2" HorizontalAlignment="Center">
-                                        <TextBlock Text="SÜREKLİLİK" Foreground="#6E7681" FontSize="8" FontWeight="Bold"/>
-                                        <TextBlock x:Name="CardConsistency" Text="14 / 20" Foreground="#58A6FF" FontSize="11" FontWeight="Bold"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-
-                            <!-- CANLI MONEYBALL RADAR GRAFİĞİ -->
-                            <TextBlock Text="LİG ORTALAMASI MONEYBALL RADARI" Foreground="#8B949E" FontSize="9" FontWeight="Bold" Margin="0,0,0,4"/>
-                            <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6" Height="190">
-                                <Canvas x:Name="RadarCanvas" Width="290" Height="190" ClipToBounds="True"/>
-                            </Border>
-
-                            <!-- Kontrat & Maaş Verimliliği Değerlendirmesi -->
-                            <Border Background="#1C2128" CornerRadius="6" Padding="8" Margin="0,8,0,0">
+                        <!-- Sağ Taraf: Seçilen Oyuncu Kartı & Radar -->
+                        <Border Grid.Column="1" Background="#161B22" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="12">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <StackPanel>
-                                    <TextBlock Text="KONTRAKT VE VERİMLİLİK DEĞERLENDİRMESİ" Foreground="#8B949E" FontSize="8" FontWeight="Bold" Margin="0,0,0,3"/>
-                                    <TextBlock x:Name="CardWageEval" Text="💎 Kelepir Fırsat / Yüksek Verim" Foreground="#3FB950" FontSize="10" FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="CardWageDetail" Text="Maaş: €45.000/hf • Bitiş: 2028 (2 yıl)" Foreground="#8B949E" FontSize="9" Margin="0,2,0,0"/>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock x:Name="CardPlayerName" Text="Semih Kılıçsoy" Foreground="#F0F6FC" FontSize="15" FontWeight="Bold"/>
+                                            <TextBlock x:Name="CardPlayerMeta" Text="20 Yaş • Beşiktaş • ST • 🇹🇷" Foreground="#8B949E" FontSize="11"/>
+                                        </StackPanel>
+                                        <Border Grid.Column="1" Background="#1F3554" BorderBrush="#388BFD" BorderThickness="1" CornerRadius="8" Padding="6,2">
+                                            <TextBlock x:Name="CardRoleScoreBadge" Text="92.4" Foreground="#58A6FF" FontWeight="Bold" FontSize="13"/>
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- CA / PA -->
+                                    <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                                                <TextBlock Text="YETENEK (CA)" Foreground="#6E7681" FontSize="8" FontWeight="Bold"/>
+                                                <TextBlock x:Name="CardCa" Text="145 / 200" Foreground="#3FB950" FontSize="11" FontWeight="Bold"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                                                <TextBlock Text="POTANSİYEL (PA)" Foreground="#6E7681" FontSize="8" FontWeight="Bold"/>
+                                                <TextBlock x:Name="CardPa" Text="168 / 200" Foreground="#D29922" FontSize="11" FontWeight="Bold"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                                                <TextBlock Text="SÜREKLİLİK" Foreground="#6E7681" FontSize="8" FontWeight="Bold"/>
+                                                <TextBlock x:Name="CardConsistency" Text="14 / 20" Foreground="#58A6FF" FontSize="11" FontWeight="Bold"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- CANLI MONEYBALL RADAR -->
+                                    <TextBlock Text="LİG ORTALAMASI MONEYBALL RADARI" Foreground="#8B949E" FontSize="9" FontWeight="Bold" Margin="0,0,0,4"/>
+                                    <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6" Height="190">
+                                        <Canvas x:Name="RadarCanvas" Width="290" Height="190" ClipToBounds="True"/>
+                                    </Border>
+
+                                    <!-- Kontrat Değerlendirmesi -->
+                                    <Border Background="#1C2128" CornerRadius="6" Padding="8" Margin="0,8,0,0">
+                                        <StackPanel>
+                                            <TextBlock Text="KONTRAKT VE VERİMLİLİK DEĞERLENDİRMESİ" Foreground="#8B949E" FontSize="8" FontWeight="Bold" Margin="0,0,0,3"/>
+                                            <TextBlock x:Name="CardWageEval" Text="💎 Kelepir Fırsat / Yüksek Verim" Foreground="#3FB950" FontSize="10" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="CardWageDetail" Text="Maaş: €45.000/hf • Bitiş: 2028 (2 yıl)" Foreground="#8B949E" FontSize="9" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </ScrollViewer>
-                </Border>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+                </Grid>
             </Grid>
 
-            <!-- 4. ALT BİLGİ VE DURUM ÇUBUĞU -->
-            <Grid Grid.Row="3" Background="#161B22" Margin="0,0,0,0">
+            <!-- 3. ALT DURUM ÇUBUĞU -->
+            <Grid Grid.Row="2" Background="#161B22">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
-                    <TextBlock x:Name="TxtStatusInfo" Text="Hazır • 10 oyuncu yüklendi" Foreground="#8B949E" FontSize="10"/>
+                    <TextBlock x:Name="TxtStatusInfo" Text="Bağlı • Football Manager 2026 Canlı Hafıza Okuyucusu Aktif" Foreground="#8B949E" FontSize="10"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0">
-                    <TextBlock Text="Football Manager 2026 Uyumlu • Yerel SQLite Arşivi" Foreground="#6E7681" FontSize="10"/>
+                    <TextBlock Text="OpenFM Hub Standalone Desktop v1.0 • Tamamen Yerel ve Ücretsiz" Foreground="#6E7681" FontSize="10"/>
                 </StackPanel>
             </Grid>
         </Grid>

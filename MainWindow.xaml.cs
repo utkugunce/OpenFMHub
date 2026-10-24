@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
-using Microsoft.Win32;
+using Microsoft.Web.WebView2.Core;
 using OpenFMHub.Models;
 using OpenFMHub.Services;
 
@@ -28,7 +30,8 @@ namespace OpenFMHub
 
         private readonly DatabaseService _dbService;
         private List<PlayerRecord> _currentPlayers = new();
-        private string _activeTab = "Overview";
+        private Process? _engineProcess;
+        private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(2) };
 
         public MainWindow()
         {
@@ -36,9 +39,10 @@ namespace OpenFMHub
             _dbService = new DatabaseService();
 
             Loaded += MainWindow_Loaded;
+            Closed += MainWindow_Closed;
         }
 
-        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -50,22 +54,140 @@ namespace OpenFMHub
             }
             catch { }
 
+            CheckFmProcess();
             LoadSeasons();
             LoadPlayers();
+
+            await InitializeLiveEngineAsync();
         }
 
+        private void CheckFmProcess()
+        {
+            try
+            {
+                var fmProcs = Process.GetProcessesByName("fm");
+                if (fmProcs.Length > 0)
+                {
+                    TxtFmDot.Foreground = Brush("#3FB950");
+                    TxtFmStatus.Text = $"FM 2026 Aktif (PID: {fmProcs[0].Id})";
+                    TxtFmStatus.Foreground = Brush("#58A6FF");
+                }
+                else
+                {
+                    TxtFmDot.Foreground = Brush("#8B949E");
+                    TxtFmStatus.Text = "FM 2026 Bekleniyor";
+                    TxtFmStatus.Foreground = Brush("#8B949E");
+                }
+            }
+            catch { }
+        }
+
+        private async Task InitializeLiveEngineAsync()
+        {
+            try
+            {
+                // Motorun çalışıp çalışmadığını kontrol et
+                bool isServerUp = false;
+                try
+                {
+                    var resp = await _httpClient.GetAsync("http://127.0.0.1:8080/actuator/health");
+                    isServerUp = resp.IsSuccessStatusCode;
+                }
+                catch { }
+
+                if (!isServerUp)
+                {
+                    string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                    string engineExe = Path.Combine(baseDir, "fm-ai-assistent-windows-x64.exe");
+
+                    if (!File.Exists(engineExe))
+                    {
+                        engineExe = @"C:\Users\utkug\.gemini\antigravity\scratch\OpenFMHub\fm-ai-assistent-windows-x64.exe";
+                    }
+
+                    if (File.Exists(engineExe))
+                    {
+                        var psi = new ProcessStartInfo
+                        {
+                            FileName = engineExe,
+                            CreateNoWindow = true,
+                            UseShellExecute = false,
+                            WindowStyle = ProcessWindowStyle.Hidden
+                        };
+                        _engineProcess = Process.Start(psi);
+                    }
+
+                    // Sunucunun ayağa kalkmasını bekle
+                    for (int i = 0; i < 15; i++)
+                    {
+                        await Task.Delay(1000);
+                        try
+                        {
+                            var resp = await _httpClient.GetAsync("http://127.0.0.1:8080/actuator/health");
+                            if (resp.IsSuccessStatusCode)
+                            {
+                                isServerUp = true;
+                                break;
+                            }
+                        }
+                        catch { }
+                    }
+                }
+
+                // WebView2 Başlat
+                await MainWebView.EnsureCoreWebView2Async();
+                MainWebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
+                MainWebView.CoreWebView2.Navigate("http://127.0.0.1:8080");
+            }
+            catch (Exception ex)
+            {
+                LiveLoadingOverlay.Visibility = Visibility.Collapsed;
+                MessageBox.Show($"Canlı motor başlatılırken uyarı: {ex.Message}\nFM26 açık olduğunda doğrudan belleğe bağlanacaktır.", "Bilgi", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        private void MainWebView_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            LiveLoadingOverlay.Visibility = Visibility.Collapsed;
+        }
+
+        private void MainWindow_Closed(object? sender, EventArgs e)
+        {
+            try
+            {
+                if (_engineProcess != null && !_engineProcess.HasExited)
+                {
+                    _engineProcess.Kill();
+                }
+            }
+            catch { }
+        }
+
+        // ================= NAVİGASYON =================
+        private void BtnNavLive_Click(object sender, RoutedEventArgs e)
+        {
+            ViewArchive.Visibility = Visibility.Collapsed;
+            ViewLive.Visibility = Visibility.Visible;
+            BtnNavLive.Foreground = Brush("#58A6FF");
+            BtnNavArchive.Foreground = Brush("#8B949E");
+            TxtStatusInfo.Text = "Canlı FM 2026 Bellek Görünümü Aktif";
+        }
+
+        private void BtnNavArchive_Click(object sender, RoutedEventArgs e)
+        {
+            ViewLive.Visibility = Visibility.Collapsed;
+            ViewArchive.Visibility = Visibility.Visible;
+            BtnNavArchive.Foreground = Brush("#58A6FF");
+            BtnNavLive.Foreground = Brush("#8B949E");
+            TxtStatusInfo.Text = "Çoklu Sezon Arşivi & Moneyball Radarı Aktif";
+        }
+
+        // ================= SEZON & OYUNCU ARŞİVİ =================
         private void LoadSeasons()
         {
             var seasons = _dbService.GetSeasons();
             CmbSeason.ItemsSource = seasons;
-            if (seasons.Count > 1)
-            {
-                CmbSeason.SelectedIndex = 1; // En son sezon (Örn: 2025/26)
-            }
-            else
-            {
-                CmbSeason.SelectedIndex = 0;
-            }
+            CmbSeason.SelectedIndex = seasons.Count > 1 ? 1 : 0;
         }
 
         private void LoadPlayers()
@@ -85,8 +207,6 @@ namespace OpenFMHub
         private void ApplyFilters()
         {
             var list = _currentPlayers.AsEnumerable();
-
-            // Arama filtresi
             string search = TxtSearch.Text.Trim();
             if (!string.IsNullOrEmpty(search))
             {
@@ -96,27 +216,17 @@ namespace OpenFMHub
                     p.Position.Contains(search, StringComparison.OrdinalIgnoreCase));
             }
 
-            // Sekme filtresi
-            switch (_activeTab)
-            {
-                case "Moneyball":
-                    list = list.OrderByDescending(p => p.RoleScore);
-                    break;
-                case "Progression":
-                    // Çoklu sezonu olan oyuncuları grupla ve gelişim gösterenleri öne al
-                    list = list.OrderByDescending(p => p.AvgRating);
-                    break;
-                case "Contracts":
-                    list = list.Where(p => p.ContractExpiryYear <= 2026 || (p.WageWeeklyEuro > 50_000 && p.AvgRating < 6.85));
-                    break;
-                default:
-                    list = list.OrderByDescending(p => p.AvgRating);
-                    break;
-            }
+            GridPlayers.ItemsSource = list.OrderByDescending(p => p.AvgRating).ToList();
+        }
 
-            var result = list.ToList();
-            GridPlayers.ItemsSource = result;
-            TxtStatusInfo.Text = $"Sezon: {CmbSeason.SelectedItem} • {result.Count} oyuncu listeleniyor";
+        private void CmbSeason_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (IsLoaded) LoadPlayers();
+        }
+
+        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            ApplyFilters();
         }
 
         private void GridPlayers_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -161,7 +271,7 @@ namespace OpenFMHub
             double[] values = { metrics.Scoring, metrics.Creation, metrics.Possession, metrics.Defending, metrics.Physical, metrics.Mental };
             string[] labels = { "ŞUT", "YARATICILIK", "PAS", "SAVUNMA", "FİZİK", "ZİHİN" };
 
-            // 1. Konsantrik rehber ağları (%25, %50, %75, %100)
+            // Rehber ağları
             for (double level = 0.25; level <= 1.0; level += 0.25)
             {
                 var gridPoly = new Polygon
@@ -179,14 +289,14 @@ namespace OpenFMHub
                 RadarCanvas.Children.Add(gridPoly);
             }
 
-            // 2. Eksen çizgileri ve etiketler
+            // Eksenler
             for (int i = 0; i < 6; i++)
             {
                 double angle = (i * 60 - 90) * Math.PI / 180.0;
                 double x = cx + (radius * Math.Cos(angle));
                 double y = cy + (radius * Math.Sin(angle));
 
-                var axisLine = new Line
+                RadarCanvas.Children.Add(new Line
                 {
                     X1 = cx,
                     Y1 = cy,
@@ -194,10 +304,8 @@ namespace OpenFMHub
                     Y2 = y,
                     Stroke = Brush("#21262D"),
                     StrokeThickness = 1
-                };
-                RadarCanvas.Children.Add(axisLine);
+                });
 
-                // Etiket
                 double lx = cx + ((radius + 14) * Math.Cos(angle));
                 double ly = cy + ((radius + 14) * Math.Sin(angle));
                 var tb = new TextBlock
@@ -212,7 +320,7 @@ namespace OpenFMHub
                 RadarCanvas.Children.Add(tb);
             }
 
-            // 3. Oyuncu poligonu
+            // Poligon
             var playerPoints = new PointCollection();
             for (int i = 0; i < 6; i++)
             {
@@ -223,16 +331,14 @@ namespace OpenFMHub
                 playerPoints.Add(new Point(x, y));
             }
 
-            var playerPoly = new Polygon
+            RadarCanvas.Children.Add(new Polygon
             {
                 Points = playerPoints,
                 Stroke = Brush("#38BDF8"),
                 StrokeThickness = 2,
                 Fill = Brush("#3338BDF8")
-            };
-            RadarCanvas.Children.Add(playerPoly);
+            });
 
-            // 4. Noktalar
             foreach (var pt in playerPoints)
             {
                 var el = new Ellipse
@@ -249,132 +355,9 @@ namespace OpenFMHub
             }
         }
 
-        private void CmbSeason_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (IsLoaded)
-            {
-                LoadPlayers();
-            }
-        }
-
-        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            ApplyFilters();
-        }
-
-        // ================= SEKME SEÇİMLERİ =================
-        private void ResetTabButtons()
-        {
-            TabBtnOverview.Foreground = Brush("#8B949E");
-            TabBtnMoneyball.Foreground = Brush("#8B949E");
-            TabBtnProgression.Foreground = Brush("#8B949E");
-            TabBtnContracts.Foreground = Brush("#8B949E");
-        }
-
-        private void TabOverview_Click(object sender, RoutedEventArgs e)
-        {
-            _activeTab = "Overview";
-            ResetTabButtons();
-            TabBtnOverview.Foreground = Brush("#58A6FF");
-            ApplyFilters();
-        }
-
-        private void TabMoneyball_Click(object sender, RoutedEventArgs e)
-        {
-            _activeTab = "Moneyball";
-            ResetTabButtons();
-            TabBtnMoneyball.Foreground = Brush("#58A6FF");
-            ApplyFilters();
-        }
-
-        private void TabProgression_Click(object sender, RoutedEventArgs e)
-        {
-            _activeTab = "Progression";
-            ResetTabButtons();
-            TabBtnProgression.Foreground = Brush("#58A6FF");
-            ApplyFilters();
-        }
-
-        private void TabContracts_Click(object sender, RoutedEventArgs e)
-        {
-            _activeTab = "Contracts";
-            ResetTabButtons();
-            TabBtnContracts.Foreground = Brush("#58A6FF");
-            ApplyFilters();
-        }
-
-        // ================= İÇE AKTARMA & TARAMA =================
-        private void BtnImportHtml_Click(object sender, RoutedEventArgs e)
-        {
-            var dlg = new OpenFileDialog
-            {
-                Filter = "FM Web / HTML Çıktıları (*.html;*.htm)|*.html;*.htm|Tüm Dosyalar (*.*)|*.*",
-                Title = "Football Manager Kadro veya Gözlem Çıktısını Seçin (Ctrl+P)"
-            };
-
-            if (dlg.ShowDialog() == true)
-            {
-                string season = CmbSeason.SelectedItem?.ToString() ?? "2025/26";
-                if (season == "Tüm Sezonlar") season = "2025/26";
-
-                var imported = FmExportParser.ParseHtml(dlg.FileName, season);
-                if (imported.Count > 0)
-                {
-                    foreach (var p in imported)
-                    {
-                        _dbService.SavePlayer(p);
-                    }
-                    MessageBox.Show($"{imported.Count} oyuncu '{season}' sezonuna başarıyla aktarıldı ve arşivlendi!", "İçe Aktarma Başarılı", MessageBoxButton.OK, MessageBoxImage.Information);
-                    LoadSeasons();
-                    LoadPlayers();
-                }
-                else
-                {
-                    MessageBox.Show("HTML dosyasında geçerli bir Football Manager oyuncu tablosu bulunamadı.", "Uyarı", MessageBoxButton.OK, MessageBoxImage.Warning);
-                }
-            }
-        }
-
-        private void BtnAutoScan_Click(object sender, RoutedEventArgs e)
-        {
-            string fmDocs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"Sports Interactive\Football Manager 26");
-            if (!Directory.Exists(fmDocs))
-            {
-                fmDocs = Environment.ExpandEnvironmentVariables(@"%USERPROFILE%\OneDrive\Belgeler\Sports Interactive\Football Manager 26");
-            }
-
-            if (Directory.Exists(fmDocs))
-            {
-                var files = Directory.GetFiles(fmDocs, "*.html", SearchOption.AllDirectories);
-                if (files.Length > 0)
-                {
-                    MessageBox.Show($"FM 2026 klasörünüzde {files.Length} adet dışa aktarılmış tablo dosyası bulundu:\n\n{string.Join("\n", files.Take(3))}", "FM26 Otomatik Tarama", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                else
-                {
-                    MessageBox.Show($"FM 2026 klasörünüz bulundu:\n{fmDocs}\n\nHenüz dışa aktarılmış bir HTML dosyası yok.\nOyunda herhangi bir ekranda (Kadro, Gözlemcilik vb.) Ctrl+P yaparak 'Web Sayfası' olarak kaydedebilirsiniz.", "Bilgi", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-            }
-            else
-            {
-                MessageBox.Show("Football Manager 26 klasörü bulunamadı.", "Bilgi", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-        }
-
-        // ================= BAŞLIK ÇUBUĞU =================
-        private void BtnMinimize_Click(object sender, RoutedEventArgs e)
-        {
-            WindowState = WindowState.Minimized;
-        }
-
-        private void BtnMaximize_Click(object sender, RoutedEventArgs e)
-        {
-            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-        }
-
-        private void BtnClose_Click(object sender, RoutedEventArgs e)
-        {
-            Close();
-        }
+        // ================= PENCERE KONTROLLERİ =================
+        private void BtnMinimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+        private void BtnMaximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
     }
 }
